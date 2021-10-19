@@ -1,0 +1,13 @@
+{
+  "name": "laundry-bot",
+  "version": "0.1.0",
+  "description": "Telegram bot to book Kungshamra laundry",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "transpile": "tsc",
+    "serve": "ts-node src/index.ts"
+  },
+  "author": "",
+  "license": "ISC"
+}
