@@ -9,5 +9,15 @@
     "serve": "ts-node src/index.ts"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.23.0",
+    "dotenv": "^10.0.0",
+    "node-html-parser": "^5.0.0",
+    "puppeteer": "^10.4.0",
+    "telegraf": "^4.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.1"
+  }
 }
