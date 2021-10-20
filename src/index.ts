@@ -1,54 +1,53 @@
 import * as dotenv from 'dotenv'
 import { Telegraf, Context } from "telegraf";
-import puppeteer from 'puppeteer';
-import { parse, HTMLElement } from 'node-html-parser';
+import { Update } from 'typegram';
+import * as scrapper from './scrapper';
+import Session from './session';
 dotenv.config()
 
-async function getAvailableSlots(username: string): Promise<string[]> {
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    await page.goto('https://sssb.aptustotal.se/AptusPortal/Account/Login');
-    await page.type('#UserName', username);
-    await page.type('#Password', username);
-    await page.click('#btnLogin');
-    await page.waitForNavigation({waitUntil: 'networkidle2'})
-    await page.goto('https://sssb.aptustotal.se/AptusPortal/CustomerBooking/FirstAvailable?categoryId=35&firstX=10')
-    const html = await page.$eval('#content', el => el.innerHTML)
-    const parsedHtml = parse(html);
-    const cards = parsedHtml.querySelectorAll('.bookingCard');
-    const avaibleSlots = cards.map(c => {
-        const parseText = (text: HTMLElement) => {
-            return text.text.trim().replace(/\n/g, '');
+
+class LaundryBot {
+    private bot: Telegraf<Context>;
+    private session: Session;
+
+    constructor() {
+        const TOKEN = process.env.BOT_TOKEN
+        if (!TOKEN) {
+            console.error('No token provided');
+            process.exit(1);
         }
-        const divs = c.querySelectorAll('div');
-        const time = parseText(divs[0]);
-        const date = parseText(divs[1]);
-        const gruppo = parseText(divs[3]);
-        const edificio = parseText(divs[4]);
-        return `${time} ${date} | ${gruppo} | ${edificio}`;
-    })
-    console.log(avaibleSlots)
-    await browser.close();
-    return avaibleSlots;
-}
 
-const TOKEN = process.env.BOT_TOKEN
-if (!TOKEN) {
-    console.error('No token provided');
-    process.exit(1);
-}
+        this.session = new Session();
 
-const bot = new Telegraf(TOKEN);
-bot.start((ctx: Context) => ctx.reply('Welcome!'));
-bot.help((ctx: Context) => ctx.reply('Help'));
-bot.on('text', async (ctx) => {
-    const username = ctx.message.text ?? '';
-    if (username.length != 13) {
-        return;
+        this.bot = new Telegraf(TOKEN);
+        this.bot.start((ctx: Context) => ctx.reply('Welcome!'));
+        this.bot.command('username', (ctx) => this.addUsername(ctx, ctx.from.id, ctx.message.text));
+        this.bot.command('available', (ctx) => this.getAvailableSlots(ctx, ctx.from.id));
+
+        this.bot.launch();
+        console.log('Bot started');
     }
-    const res = await getAvailableSlots(username);
-    ctx.reply(res.join('\n'));
-})
 
-bot.launch();
-console.log('Bot started');
+    private addUsername(ctx: Context, userId: number, text: string) {
+        const username = text.split(' ')[1];
+        if (username.length != 13) {
+            ctx.reply('Username must be in te format:\n/username 0000-0000-000')
+        }
+        this.session.addUsername(userId, username);
+        ctx.reply('Username saved!');
+    }
+
+    private async getAvailableSlots(ctx: Context, userId: number) {
+        const username = this.session.getUsername(userId);
+        if (!username) {
+            ctx.reply('You must add a username first!');
+            return;
+        }
+        const msg = await ctx.reply('Loading ...');
+        const res = await scrapper.getAvailableSlots(username);
+        ctx.telegram.editMessageText(ctx.chat?.id, msg.message_id, undefined, res.join('\n'));
+    }
+
+}
+
+new LaundryBot();
